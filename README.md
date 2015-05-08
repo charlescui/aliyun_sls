@@ -48,6 +48,12 @@
 1. 执行上传日志操作
     2. `[PROJECT=[PROJECT]] sls put log_path store [topic]`
     2. 上传日志操作是使用Tail方式执行，有增量日志产生的时候，会自动收集增量部分上传到阿里云
+    
+## fluentd-plugin-sls
+
+可以结合fluentd，将日志解析好之后上传到阿里云上，实现日志的统一存储。
+
+`gist`地址：<script src="https://gist.github.com/charlescui/d2a231dbc85b11586fa0.js"></script>
 
 ## Installation
 
