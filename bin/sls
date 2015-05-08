@@ -1,0 +1,85 @@
+#!/usr/bin/env ruby
+require File.join(File.dirname(__FILE__), '..', 'lib', 'aliyun_sls.rb')
+require "file-tail"
+require "byebug"
+puts "sls [opt] ..." if (ARGV.size < 1)
+
+def setup
+    h = {}
+    h['project'] = ENV["PROJECT"]
+    h['region'] = ENV["REGION"] || (puts "PROJECT=[PROJECT] REGION=[REGION] SECRET=[SECRET] KEY=[KEY] sls setup";exit)
+    h['access_key_secret'] = ENV["SECRET"] || (puts "PROJECT=[PROJECT] REGION=[REGION] SECRET=[SECRET] KEY=[KEY] sls setup";exit)
+    h['aliyun_access_key'] = ENV["KEY"] || (puts "PROJECT=[PROJECT] REGION=[REGION] SECRET=[SECRET] KEY=[KEY] sls setup";exit)
+    File.open(File.join(Dir.home, '.slsrc'), 'w+'){|f|
+        f << YAML.dump(h)
+    }
+    puts "setup config at ~/.slsrc"
+end
+
+def load
+    File.open(File.join(Dir.home, '.slsrc')){|f|
+        $config = YAML.load(f)
+    }
+end
+
+def regist_exit
+    puts "Press CTRL-C to quit"
+    Signal.trap(:INT){
+        exit(-1)
+    }
+end
+
+def put_logs(path, store, topic)
+    regist_exit
+    (puts "[PROJECT=[PROJECT]] sls put log_path store [topic]";exit(-1)) if !path || !store
+    load
+    (puts "load config failed!";exit(-1)) if !$config
+    
+    # 如果传递了项目名称
+    # 则使用本次调用传递过来的值
+    # 否则使用配置文件中的值
+    con = AliyunSls::Connection.new(ENV['PROJECT'] || $config['project'], $config['region'], $config['access_key_secret'], $config['aliyun_access_key'])
+
+    File.open(path) do |log|
+        log.extend(File::Tail)
+        log.interval = 3
+        log.backward(0)
+        log.tail { |line|
+            puts line
+            put_line(line, con, store, topic)
+        }
+    end
+end
+
+def put_line(line, con, store, topic)
+    log = AliyunSls::Protobuf::Log.new(:time => Time.now.to_i, :contents => [])
+    begin
+        uri = URI.parse(line)
+        uri.query and uri.query.split('&').each{|paire| 
+            k, v = paire.split('=')
+            log_item = AliyunSls::Protobuf::Log::Content.new(:key => k, :value => v)
+            log.contents << log_item
+        }
+        log_list = AliyunSls::Protobuf::LogGroup.new(:logs => [])
+        log_list.logs << log
+        log_list.topic = topic
+        log_list.source = uri.host
+    rescue URI::InvalidURIError => e
+        puts e
+        return
+    end
+
+    begin
+        rsp = con.puts_logs(store, log_list)
+    rescue Exception => e
+        puts "Exception with rsp #{e}"
+    end
+end
+
+case opt = ARGV[0]
+when /setup/i
+    setup
+    exit(0)
+when /put/i
+    put_logs(ARGV[1], ARGV[2], ARGV[3] || 'aliyun_sls_topic')
+end
