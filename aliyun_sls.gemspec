@@ -23,4 +23,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency "rest-client"
   spec.add_dependency "beefcake"
   spec.add_dependency "file-tail"
+  spec.add_dependency "ruby-hmac"
 end
