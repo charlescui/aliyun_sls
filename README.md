@@ -53,7 +53,7 @@
 
 可以结合fluentd，将日志解析好之后上传到阿里云上，实现日志的统一存储。
 
-`gist`地址：<script src="https://gist.github.com/charlescui/d2a231dbc85b11586fa0.js"></script>
+`gist`地址：`https://gist.github.com/charlescui/d2a231dbc85b11586fa0`
 
 ## Installation
 
