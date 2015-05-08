@@ -33,7 +33,7 @@ def put_logs(path, store, topic)
     regist_exit
     (puts "[PROJECT=[PROJECT]] sls put log_path store [topic]";exit(-1)) if !path || !store
     load
-    (puts "load config failed!";exit(-1)) if !$config
+    (puts "load config failed! run: sls setup first.";exit(-1)) if !$config
     
     # 如果传递了项目名称
     # 则使用本次调用传递过来的值
