@@ -142,7 +142,8 @@ DOC
             headers["Authorization"] = signature("POST", logstorename, headers, content, {})
 
             u = URI.parse("http://#{@host}/logstores/#{logstorename}")
-            RestClient.post u.to_s, compressed, headers
+            rsp = RestClient.post u.to_s, compressed, headers
+            parse_response(rsp)
         end
 
         def list_logstores
@@ -151,7 +152,20 @@ DOC
 
             u = URI.parse("http://#{@host}/logstores")
             headers["Referer"] = u.to_s
-            RestClient.get u.to_s, headers
+            rsp = RestClient.get u.to_s, headers
+            parse_response(rsp)
+        end
+
+        def parse_response(rsp)
+            # 如果返回结果报错，则解析报错内容打印到日志中
+            if rsp.code.to_s =~ /[4|5]\d\d/
+                msg = "status #{rsp.code} body #{rsp}"
+                if $logger and $logger.respond_to?(:error)
+                    $logger.error msg
+                else
+                    puts msg
+                end
+            end
         end
     end
 end
