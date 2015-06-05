@@ -116,7 +116,7 @@ module AliyunSls
                 :from => Time.now.to_i - 60*5,#默认是五分钟前
                 :to => Time.now.to_i,
                 :topic => "",
-                :query => 0,
+                :query => "",
             }
             opts = default_opts.update opts
             headers = compact_headers(nil, nil)
@@ -186,9 +186,14 @@ DOC
         def canonicalized_resource(logstorename, query={})
             u = logstorename ? Addressable::URI.parse("/logstores/#{logstorename}") : Addressable::URI.parse("/logstores")
             if query.size != 0
-                u.query_values = query
+                # 不能对请求的URL参数做URLEncode编码
+                q_str = query.keys.sort.map { |e|  
+                    "#{e}=#{query[e]}"
+                }.join('&')
+                "#{u}?#{q_str}"
+            else
+                u.to_s
             end
-            u.to_s
         end
 
 # 目前，SLS API只支持一种数字签名算法，即默认签名算法"hmac-sha1"。其整个签名公式如下：
