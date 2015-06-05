@@ -1,7 +1,11 @@
+require "addressable/uri"
 require 'rest_client'
 require 'hmac-sha1'
 require "base64"
 require "zlib"
+require "time"
+
+require "byebug"
 
 # log = AliyunSls::Protobuf::Log.new(:time => Time.now.to_i, :contents => [])
 
@@ -42,6 +46,90 @@ module AliyunSls
             @access_key_secret = access_key_secret
             @host = "#{project}.#{region}"
         end
+
+        # http://docs.aliyun.com/#/pub/sls/api/apilist&PutLogs
+        def puts_logs(logstorename, content)
+            # 压缩content数据
+            compressed = Zlib::Deflate.deflate(content.encode.to_s)
+            headers = compact_headers(content, compressed)
+            headers["Authorization"] = signature("POST", logstorename, headers, content, {})
+
+            u = URI.parse("http://#{@host}/logstores/#{logstorename}")
+            rsp = RestClient.post u.to_s, compressed, headers
+            parse_response(rsp)
+        end
+
+        # http://docs.aliyun.com/#/pub/sls/api/apilist&ListLogstores
+        def list_logstores
+            headers = compact_headers(nil, nil)
+            headers["Authorization"] = signature("GET", nil, headers, nil, {})
+
+            u = URI.parse("http://#{@host}/logstores")
+            headers["Referer"] = u.to_s
+            rsp = RestClient.get u.to_s, headers
+            parse_response(rsp)
+        end
+
+        # http://docs.aliyun.com/#/pub/sls/api/apilist&GetLogs
+        def get_logs(logstorename, opts={})
+            default_opts = {
+                :type => "log",
+                :from => Time.now.to_i - 60*5,#默认是五分钟前
+                :to => Time.now.to_i,
+                :line => 100,
+                :offset => 0,
+                :reverse => false
+            }
+            opts = default_opts.update opts
+            headers = compact_headers(nil, nil)
+            headers["Authorization"] = signature("GET", logstorename, headers, nil, opts)
+
+            u = Addressable::URI.parse("http://#{@host}/logstores/#{logstorename}")
+            headers["Referer"] = u.to_s
+            u.query_values = opts
+            rsp = RestClient.get u.to_s, headers
+            parse_response(rsp)
+        end
+
+        # http://docs.aliyun.com/#/pub/sls/api/apilist&ListTopics
+        def list_topics(logstorename, opts={})
+            default_opts = {
+                :type => "topic",
+                :line => 100,
+                :toke => ""
+            }
+            opts = default_opts.update opts
+            headers = compact_headers(nil, nil)
+            headers["Authorization"] = signature("GET", logstorename, headers, nil, opts)
+
+            u = Addressable::URI.parse("http://#{@host}/logstores/#{logstorename}")
+            headers["Referer"] = u.to_s
+            u.query_values = opts
+            rsp = RestClient.get u.to_s, headers
+            parse_response(rsp)
+        end
+
+        # http://docs.aliyun.com/#/pub/sls/api/apilist&GetHistograms
+        def get_histograms(logstorename, opts={})
+            default_opts = {
+                :type => "histogram",
+                :from => Time.now.to_i - 60*5,#默认是五分钟前
+                :to => Time.now.to_i,
+                :topic => "",
+                :query => 0,
+            }
+            opts = default_opts.update opts
+            headers = compact_headers(nil, nil)
+            headers["Authorization"] = signature("GET", logstorename, headers, nil, opts)
+
+            u = Addressable::URI.parse("http://#{@host}/logstores/#{logstorename}")
+            headers["Referer"] = u.to_s
+            u.query_values = opts
+            rsp = RestClient.get u.to_s, headers
+            parse_response(rsp)
+        end
+
+        private
 
         def string_to_sign(verb, logstorename, headers, content, query={})
             if content
@@ -96,9 +184,9 @@ DOC
 # 2. 放入要访问的SLS资源："/logstores/logstorename"（无logstorename则不填）；
 # 3. 如请求包含查询字符串（QUERY_STRING），则在CanonicalizedResource字符串尾部添加“？”和查询字符串。
         def canonicalized_resource(logstorename, query={})
-            u = logstorename ? URI.parse("/logstores/#{logstorename}") : URI.parse("/logstores")
+            u = logstorename ? Addressable::URI.parse("/logstores/#{logstorename}") : Addressable::URI.parse("/logstores")
             if query.size != 0
-                u.query = query.inject([]){|s, a| s << "#{a[0]}=#{a[1]}"}.join('&')
+                u.query_values = query
             end
             u.to_s
         end
@@ -135,27 +223,6 @@ DOC
             headers
         end
 
-        def puts_logs(logstorename, content)
-            # 压缩content数据
-            compressed = Zlib::Deflate.deflate(content.encode.to_s)
-            headers = compact_headers(content, compressed)
-            headers["Authorization"] = signature("POST", logstorename, headers, content, {})
-
-            u = URI.parse("http://#{@host}/logstores/#{logstorename}")
-            rsp = RestClient.post u.to_s, compressed, headers
-            parse_response(rsp)
-        end
-
-        def list_logstores
-            headers = compact_headers(nil, nil)
-            headers["Authorization"] = signature("GET", nil, headers, nil, {})
-
-            u = URI.parse("http://#{@host}/logstores")
-            headers["Referer"] = u.to_s
-            rsp = RestClient.get u.to_s, headers
-            parse_response(rsp)
-        end
-
         def parse_response(rsp)
             # 如果返回结果报错，则解析报错内容打印到日志中
             if rsp.code.to_s =~ /[4|5]\d\d/
@@ -166,6 +233,7 @@ DOC
                     puts msg
                 end
             end
+            rsp
         end
     end
 end

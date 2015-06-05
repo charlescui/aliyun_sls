@@ -1,6 +1,7 @@
 require File.join(File.dirname(__FILE__), 'aliyun_sls', 'version.rb')
 require File.join(File.dirname(__FILE__), 'aliyun_sls', 'protobuf.rb')
 require File.join(File.dirname(__FILE__), 'aliyun_sls', 'connection.rb')
+require File.join(File.dirname(__FILE__), 'aliyun_sls', 'hash.rb')
 
 module AliyunSls
     class PostBodyInvalid < RuntimeError; end
