@@ -5,8 +5,6 @@ require "base64"
 require "zlib"
 require "time"
 
-require "byebug"
-
 # log = AliyunSls::Protobuf::Log.new(:time => Time.now.to_i, :contents => [])
 
 # [
